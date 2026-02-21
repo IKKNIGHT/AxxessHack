@@ -1,6 +1,6 @@
 import pandas as pd
 import joblib
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, jsonify
 
 app = Flask(__name__)
 
@@ -13,69 +13,118 @@ except FileNotFoundError:
     print("Error: Pickle files not found. Run train.py first!")
     exit()
 
+# --- WEB UI SECTION ---
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
     <title>Framingham CVD Predictor</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; background-color: #f4f4f9; }
-        form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; }
-        input { margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box; }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
-        .result { margin-top: 20px; padding: 15px; border-radius: 5px; background: #e7f3ff; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f0f2f5; color: #333; }
+        .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 600px; margin: auto; }
+        h2 { color: #1a73e8; border-bottom: 2px solid #e8eaed; padding-bottom: 10px; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        label { font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 6px; box-sizing: border-box; }
+        .full-width { grid-column: span 2; }
+        button { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 10px; transition: background 0.3s; }
+        button:hover { background: #1557b0; }
+        .result { margin-top: 25px; padding: 20px; border-radius: 8px; background: #e8f0fe; border-left: 5px solid #1a73e8; }
     </style>
 </head>
 <body>
-    <h2>CVD 10-Year Risk Predictor</h2>
-    <form method="POST">
-        {% for feat in features %}
-            <label>{{ feat }}:</label>
-            <input type="number" step="any" name="{{ feat }}" required>
-        {% endfor %}
-        <button type="submit">Calculate Risk</button>
-    </form>
+    <div class="container">
+        <h2>CVD 10-Year Risk Predictor</h2>
+        <form method="POST">
+            <div class="form-grid">
+                {% for feat in features %}
+                <div>
+                    <label>{{ feat }}</label>
+                    <input type="number" step="any" name="{{ feat }}" required>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit">Calculate Risk Score</button>
+        </form>
 
-    {% if probability %}
-        <div class="result">
-            <h3>Probability: {{ probability }}%</h3>
-            <h3>Risk Category: {{ risk }}</h3>
-        </div>
-    {% endif %}
+        {% if probability %}
+            <div class="result">
+                <strong>Analysis Result:</strong>
+                <p>Probability: {{ probability }}%</p>
+                <h3>Risk Category: {{ risk }}</h3>
+            </div>
+        {% endif %}
+    </div>
 </body>
 </html>
 """
 
 
 @app.route("/", methods=["GET", "POST"])
-def predict():
+def home():
     probability = None
     risk = None
-
     if request.method == "POST":
         try:
-            # Dynamically build input dict based on saved features
             input_dict = {feat: [float(request.form[feat])] for feat in saved_features}
-            input_df = pd.DataFrame(input_dict)
-
-            # Ensure column order matches training exactly
-            input_df = input_df[saved_features]
-
+            input_df = pd.DataFrame(input_dict)[saved_features]
             prob = model.predict_proba(input_df)[0][1]
             probability = round(prob * 100, 2)
-
-            if probability < 10:
-                risk = "Low Risk"
-            elif probability < 20:
-                risk = "Moderate Risk"
-            else:
-                risk = "High Risk"
-
+            risk = "Low Risk" if probability < 10 else "Moderate Risk" if probability < 20 else "High Risk"
         except Exception as e:
-            return f"<h3>Error: {e}</h3>"
-
+            return f"<h3>Form Error: {e}</h3>"
     return render_template_string(HTML_TEMPLATE, features=saved_features, probability=probability, risk=risk)
 
 
+# --- API SECTION ---
+
+@app.route("/api/predict", methods=["POST"])
+def api_predict():
+    """
+    API Endpoint for CVD prediction.
+    Expects: JSON object with all feature names as keys.
+    Returns: JSON with probability and risk category.
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No input data provided"}), 400
+
+    try:
+        # 1. Convert incoming JSON to DataFrame
+        # We wrap values in lists [v] because pandas expects a list for scalar values
+        input_dict = {feat: [float(data[feat])] for feat in saved_features}
+        input_df = pd.DataFrame(input_dict)
+
+        # 2. Reorder columns to match model
+        input_df = input_df[saved_features]
+
+        # 3. Predict
+        prob = model.predict_proba(input_df)[0][1]
+        probability_percent = round(prob * 100, 2)
+
+        # 4. Categorize
+        if probability_percent < 10:
+            risk = "Low Risk"
+        elif probability_percent < 20:
+            risk = "Moderate Risk"
+        else:
+            risk = "High Risk"
+
+        return jsonify({
+            "status": "success",
+            "cvd_probability_percent": probability_percent,
+            "risk_category": risk,
+            "units": "10-year risk"
+        })
+
+    except KeyError as e:
+        return jsonify({"status": "error", "message": f"Missing required feature: {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Note: host='0.0.0.0' allows access from other devices on the same network
+    app.run(debug=True, port=5000)
