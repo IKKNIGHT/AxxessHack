@@ -1,185 +1,81 @@
-# %% [markdown]
-# ## Imports dependencies
-
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import joblib
+from flask import Flask, request, render_template_string
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score, precision_score, recall_score, f1_score
-from imblearn.over_sampling import SMOTE
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.ensemble import GradientBoostingClassifier
-from xgboost import XGBClassifier
-from catboost import CatBoostClassifier
+app = Flask(__name__)
 
-import warnings
+# Load the artifacts created by train.py
+try:
+    model = joblib.load("framingham_rf_model.pkl")
+    saved_features = joblib.load("feature_names.pkl")
+    print("Model and features loaded into memory.")
+except FileNotFoundError:
+    print("Error: Pickle files not found. Run train.py first!")
+    exit()
 
-warnings.filterwarnings('ignore')
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Framingham CVD Predictor</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background-color: #f4f4f9; }
+        form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; }
+        input { margin-bottom: 10px; width: 100%; padding: 8px; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 5px; background: #e7f3ff; }
+    </style>
+</head>
+<body>
+    <h2>CVD 10-Year Risk Predictor</h2>
+    <form method="POST">
+        {% for feat in features %}
+            <label>{{ feat }}:</label>
+            <input type="number" step="any" name="{{ feat }}" required>
+        {% endfor %}
+        <button type="submit">Calculate Risk</button>
+    </form>
 
-# %% [markdown]
-# ## Load dataset
-
-df = pd.read_csv('database/Framingham Dataset.csv')
-
-# %% [markdown]
-# ## EDA and Preprocessing
-
-df.shape
-
-df.head()
-
-df.describe().T
-
-# Information about the data
-df.info()
-
-df.isnull().sum()
-
-
-# Impute missing values with the median value
-def impute_median(data):
-    return data.fillna(data.median())
-
-
-df.TOTCHOL = df['TOTCHOL'].transform(impute_median)
-df.CIGPDAY = df['CIGPDAY'].transform(impute_median)
-df.BMI = df['BMI'].transform(impute_median)
-df.BPMEDS = df['BPMEDS'].transform(impute_median)
-df.HEARTRTE = df['HEARTRTE'].transform(impute_median)
-df.GLUCOSE = df['GLUCOSE'].transform(impute_median)
-df.educ = df['educ'].transform(impute_median)
-df.HDLC = df['HDLC'].transform(impute_median)
-df.LDLC = df['LDLC'].transform(impute_median)
-
-df.isnull().sum()
-
-# %% [markdown]
-# ## Data Visualisation
-
-var_cat = ['SEX', 'CURSMOKE', 'DIABETES', 'BPMEDS', 'educ', 'PREVCHD', 'PREVAP',
-           'PREVMI', 'PREVSTRK', 'PREVHYP', 'PERIOD', 'DEATH', 'ANGINA', 'HOSPMI',
-           'MI_FCHD', 'ANYCHD', 'STROKE', 'CVD', 'HYPERTEN']
-
-fig, ax = plt.subplots(13, 3, figsize=(16, 32))
-
-i = 0
-j = 0
-for var in df.columns:
-    if var in var_cat:
-        sns.countplot(x=var, data=df, color='skyblue', ax=ax[i, j])
-    else:
-        sns.histplot(df[var], bins=40, kde=True, color='skyblue', edgecolor='black', ax=ax[i, j])
-    ax[i, j].set_title(var)
-    ax[i, j].set_xlabel(var)
-    ax[i, j].set_ylabel('Count')
-
-    if j == 2:
-        j = 0
-        i += 1
-    else:
-        j += 1
-
-plt.tight_layout()
-plt.show()
+    {% if probability %}
+        <div class="result">
+            <h3>Probability: {{ probability }}%</h3>
+            <h3>Risk Category: {{ risk }}</h3>
+        </div>
+    {% endif %}
+</body>
+</html>
+"""
 
 
-# Correlation matrix
-plt.figure(figsize=(12, 8))
-correlation_matrix = df.corr()
-sns.heatmap(correlation_matrix, cmap='coolwarm')
-plt.title('Matriz de Correlación')
-plt.show()
+@app.route("/", methods=["GET", "POST"])
+def predict():
+    probability = None
+    risk = None
 
-df.corr()['CVD']
+    if request.method == "POST":
+        try:
+            # Dynamically build input dict based on saved features
+            input_dict = {feat: [float(request.form[feat])] for feat in saved_features}
+            input_df = pd.DataFrame(input_dict)
 
-# %% [markdown]
-# ## Models
+            # Ensure column order matches training exactly
+            input_df = input_df[saved_features]
 
-# %% [code]
-# Split data into features and target
-X = df.drop(['CVD'], axis=1)
-y = df['CVD']
+            prob = model.predict_proba(input_df)[0][1]
+            probability = round(prob * 100, 2)
 
-# %% [code]
-# Split data into training and testing sets
-smote = SMOTE(sampling_strategy='auto', random_state=42)
-X_resampled, y_resampled = smote.fit_resample(X, y)
-X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=1234)
+            if probability < 10:
+                risk = "Low Risk"
+            elif probability < 20:
+                risk = "Moderate Risk"
+            else:
+                risk = "High Risk"
 
-# %% [code]
-# Instantiate classification models
-models = {
-    'Decision Tree': DecisionTreeClassifier(max_depth=20),
-    'Random Forest': RandomForestClassifier(n_estimators=400, random_state=42),
-    'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=2),
-    'AdaBoost': AdaBoostClassifier(),
-    'Gradient Boosting': GradientBoostingClassifier(),
-    'XGBoost': XGBClassifier(n_estimators=350),
-    'CatBoost': CatBoostClassifier(verbose=0)
-}
+        except Exception as e:
+            return f"<h3>Error: {e}</h3>"
 
-# Fit models and generate classification reports
-accuracy = []
-precision = []
-recall = []
-f1 = []
-
-for name, model in models.items():
-    model.fit(X_train, y_train)
-    y_pred = model.predict(X_test)
-
-    accuracy.append(accuracy_score(y_test, y_pred))
-    precision.append(precision_score(y_test, y_pred, average='weighted'))
-    recall.append(recall_score(y_test, y_pred, average='weighted'))
-    f1.append(f1_score(y_test, y_pred, average='weighted'))
-
-    report = classification_report(y_test, y_pred)
-    print(f'{name} Classification Report:\n{report}\n')
-
-# %% [code]
-d = {'Models': list(models.keys()), 'Accuracy': accuracy, 'Precision': precision, 'Recall': recall, 'F1 Score': f1}
+    return render_template_string(HTML_TEMPLATE, features=saved_features, probability=probability, risk=risk)
 
 
-# Function to add values on top of bars
-def add_values_on_bars(ax, values):
-    for i, value in enumerate(values):
-        ax.text(i, value + 0.01, f'{value:.2f}', ha='center', va='bottom')
-
-
-# Create the bar plots
-fig, ax = plt.subplots(2, 2, figsize=(16, 16))
-
-sns.barplot(x='Models', y='Accuracy', data=d, ax=ax[0, 0], color='skyblue')
-add_values_on_bars(ax[0, 0], accuracy)
-ax[0, 0].set_title('Model Accuracy Comparison')
-ax[0, 0].set_xlabel('Accuracy')
-ax[0, 0].set_ylabel('Model')
-ax[0, 0].tick_params(axis='x', rotation=45)
-
-sns.barplot(x='Models', y='Precision', data=d, ax=ax[0, 1], color='skyblue')
-add_values_on_bars(ax[0, 1], precision)
-ax[0, 1].set_title('Model Precision Comparison')
-ax[0, 1].set_xlabel('Precision')
-ax[0, 1].set_ylabel('Model')
-ax[0, 1].tick_params(axis='x', rotation=45)
-
-sns.barplot(x='Models', y='Recall', data=d, ax=ax[1, 0], color='skyblue')
-add_values_on_bars(ax[1, 0], recall)
-ax[1, 0].set_title('Model Recall Comparison')
-ax[1, 0].set_xlabel('Recall')
-ax[1, 0].set_ylabel('Model')
-ax[1, 0].tick_params(axis='x', rotation=45)
-
-sns.barplot(x='Models', y='F1 Score', data=d, ax=ax[1, 1], color='skyblue')
-add_values_on_bars(ax[1, 1], f1)
-ax[1, 1].set_title('Model F1 Score Comparison')
-ax[1, 1].set_xlabel('F1 Score')
-ax[1, 1].set_ylabel('Model')
-ax[1, 1].tick_params(axis='x', rotation=45)
-
-plt.tight_layout()
-plt.show()
+if __name__ == "__main__":
+    app.run(debug=True)

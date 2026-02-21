@@ -1,9 +1,11 @@
 pandas
 matplotlib
-seaborn
 sklearn
 imblearn
 xgboost
 catboost
 wrapt >=1.14.0
 appmap==2.1.9
+flask
+numpy
+joblib
