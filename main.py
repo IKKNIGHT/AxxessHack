@@ -1,8 +1,10 @@
 import pandas as pd
 import joblib
 from flask import Flask, request, render_template_string, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Load the artifacts created by train.py
 try:
@@ -79,19 +81,24 @@ def home():
 
 # --- API SECTION ---
 
-@app.route("/api/predict", methods=["POST"])
+@app.route("/api/predict", methods=["POST", "OPTIONS"])
 def api_predict():
     """
     API Endpoint for CVD prediction.
     Expects: JSON object with all feature names as keys.
     Returns: JSON with probability and risk category.
     """
+    if request.method == "OPTIONS":
+        return "", 200
+    
     data = request.get_json()
+    print(f"Received data from frontend: {data}")
 
     if not data:
         return jsonify({"error": "No input data provided"}), 400
 
     try:
+        print(f"Required features: {saved_features}")
         # 1. Convert incoming JSON to DataFrame
         # We wrap values in lists [v] because pandas expects a list for scalar values
         input_dict = {feat: [float(data[feat])] for feat in saved_features}
@@ -112,19 +119,26 @@ def api_predict():
         else:
             risk = "High Risk"
 
-        return jsonify({
+        response_data = {
             "status": "success",
             "cvd_probability_percent": probability_percent,
             "risk_category": risk,
             "units": "10-year risk"
-        })
+        }
+        print(f"Sending response: {response_data}")
+        return jsonify(response_data)
 
     except KeyError as e:
-        return jsonify({"status": "error", "message": f"Missing required feature: {str(e)}"}), 400
+        error_msg = f"Missing required feature: {str(e)}"
+        print(f"KeyError: {error_msg}")
+        return jsonify({"status": "error", "message": error_msg}), 400
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        error_msg = str(e)
+        print(f"Exception: {error_msg}")
+        return jsonify({"status": "error", "message": error_msg}), 500
 
 
 if __name__ == "__main__":
+    # CVD Prediction API runs on port 5001 (separate from LLM service)
     # Note: host='0.0.0.0' allows access from other devices on the same network
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5001)

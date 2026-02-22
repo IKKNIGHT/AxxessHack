@@ -12,7 +12,19 @@ export default function Dashboard() {
   const latestAssessment = getLatestAssessment();
   const assessments = getAssessments();
 
-  const getRiskInsights = (risk: number) => {
+  const getRiskInsights = (risk: number, llmFeedback?: string) => {
+    // If LLM feedback is available, use it
+    if (llmFeedback) {
+      return {
+        message: "💡 AI-Powered Recommendations",
+        recommendations: llmFeedback
+          .split('\n')
+          .filter(line => line.trim().length > 0)
+          .slice(0, 4), // Show first 4 recommendations
+      };
+    }
+
+    // Fallback to rule-based insights if no LLM feedback
     if (risk < 10) {
       return {
         message: "🎉 Amazing! Your heart is throwing a healthy party!",
@@ -93,7 +105,7 @@ export default function Dashboard() {
     );
   }
 
-  const insights = getRiskInsights(latestAssessment.riskPercentage);
+  const insights = getRiskInsights(latestAssessment.riskPercentage, latestAssessment.llmFeedback);
 
   return (
     <div className="space-y-8">

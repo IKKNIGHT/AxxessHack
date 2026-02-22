@@ -9,7 +9,7 @@ import HealthDataForm from "../HealthDataForm";
 import RiskGauge from "../RiskGauge";
 import { HealthData, AssessmentResult } from "../types/health";
 import { DEFAULT_HEALTH_DATA } from "../utils/constants";
-import { predictCVDRisk } from "../utils/api";
+import { predictCVDRisk, generateLLMFeedback } from "../utils/api";
 import { saveAssessment } from "../utils/storage";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,12 +27,25 @@ export default function HealthAssessment() {
   const handleCalculateRisk = async () => {
     setIsCalculating(true);
     try {
+      // Get CVD risk prediction from CVD API service
       const riskPercentage = await predictCVDRisk(healthData);
-      
+
       let riskLevel: "Low" | "Moderate" | "High" | "Very High" = "Low";
       if (riskPercentage >= 30) riskLevel = "Very High";
       else if (riskPercentage >= 20) riskLevel = "High";
       else if (riskPercentage >= 10) riskLevel = "Moderate";
+
+      // Build bio summary for LLM feedback
+      const bio = `Patient Profile - Age: ${healthData.AGE}, Blood Pressure: ${healthData.SYSBP}/${healthData.DIABP} mmHg, Total Cholesterol: ${healthData.TOTCHOL} mg/dL, BMI: ${healthData.BMI}, Heart Rate: ${healthData.HEARTRTE} bpm, Glucose: ${healthData.GLUCOSE} mg/dL, Smoker: ${healthData.CURSMOKE ? 'Yes' : 'No'}, Diabetes: ${healthData.DIABETES ? 'Yes' : 'No'}, 10-Year CVD Risk: ${riskPercentage}%`;
+
+      // Get personalized LLM feedback from LLM service
+      let llmFeedback: string | undefined;
+      try {
+        llmFeedback = await generateLLMFeedback(bio);
+      } catch (llmError) {
+        console.warn("LLM service unavailable, continuing without feedback", llmError);
+        // Continue without LLM feedback if service is unavailable
+      }
 
       const assessment: AssessmentResult = {
         id: Date.now().toString(),
@@ -40,6 +53,7 @@ export default function HealthAssessment() {
         healthData: { ...healthData },
         riskPercentage,
         riskLevel,
+        llmFeedback,
       };
 
       saveAssessment(assessment);

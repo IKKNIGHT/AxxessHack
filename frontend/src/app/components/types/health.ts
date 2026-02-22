@@ -29,4 +29,5 @@ export interface AssessmentResult {
   healthData: HealthData;
   riskPercentage: number;
   riskLevel: "Low" | "Moderate" | "High" | "Very High";
+  llmFeedback?: string; // LLM-generated personalized recommendations
 }

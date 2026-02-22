@@ -7,3 +7,4 @@ node_modules/
 .env.local
 .env.*.local
 /__pycache__
+API_KEY = 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
