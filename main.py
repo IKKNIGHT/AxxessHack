@@ -1,10 +1,20 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
 import pandas as pd
 import joblib
+import threading
 from flask import Flask, request, render_template_string, jsonify
+
+from speech.pipeline import record_until_silence
+from speech.stt import transcribe
+from speech.llm import ask, reset_conversation
+from speech.tts import speak
 
 app = Flask(__name__)
 
-# Load the artifacts created by train.py
+# Load model
 try:
     model = joblib.load("framingham_rf_model.pkl")
     saved_features = joblib.load("feature_names.pkl")
@@ -13,7 +23,48 @@ except FileNotFoundError:
     print("Error: Pickle files not found. Run train.py first!")
     exit()
 
-# --- WEB UI SECTION ---
+# ---------------------------------------------------------------------------
+# SPEECH THREAD
+# ---------------------------------------------------------------------------
+
+def speech_loop():
+    try:
+        speak("Hi! I'm your heart health assistant. You can ask me about your cardiovascular risk results or heart health in general.")
+    except Exception as e:
+        print(f"[TTS startup error]: {e}")
+
+    while True:
+        try:
+            audio = record_until_silence()
+            if len(audio) == 0:
+                continue
+
+            text = transcribe(audio)
+            if not text:
+                continue
+
+            print(f"Patient: {text}")
+
+            if any(w in text.lower() for w in ["goodbye", "bye", "exit", "quit"]):
+                speak("Take care, and stay heart healthy!")
+                break
+
+            if any(w in text.lower() for w in ["reset", "start over"]):
+                reset_conversation()
+                speak("Sure, let's start fresh. What would you like to know?")
+                continue
+
+            reply = ask(text)
+            print(f"Assistant: {reply}")
+            speak(reply)
+
+        except Exception as e:
+            print(f"[Speech loop error]: {e}")
+            continue
+
+# ---------------------------------------------------------------------------
+# FLASK ROUTES
+# ---------------------------------------------------------------------------
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -27,8 +78,7 @@ HTML_TEMPLATE = """
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         label { font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px; }
         input { width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 6px; box-sizing: border-box; }
-        .full-width { grid-column: span 2; }
-        button { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 10px; transition: background 0.3s; }
+        button { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-size: 1rem; margin-top: 10px; }
         button:hover { background: #1557b0; }
         .result { margin-top: 25px; padding: 20px; border-radius: 8px; background: #e8f0fe; border-left: 5px solid #1a73e8; }
     </style>
@@ -60,7 +110,6 @@ HTML_TEMPLATE = """
 </html>
 """
 
-
 @app.route("/", methods=["GET", "POST"])
 def home():
     probability = None
@@ -77,54 +126,56 @@ def home():
     return render_template_string(HTML_TEMPLATE, features=saved_features, probability=probability, risk=risk)
 
 
-# --- API SECTION ---
-
 @app.route("/api/predict", methods=["POST"])
 def api_predict():
-    """
-    API Endpoint for CVD prediction.
-    Expects: JSON object with all feature names as keys.
-    Returns: JSON with probability and risk category.
-    """
     data = request.get_json()
-
     if not data:
         return jsonify({"error": "No input data provided"}), 400
-
     try:
-        # 1. Convert incoming JSON to DataFrame
-        # We wrap values in lists [v] because pandas expects a list for scalar values
         input_dict = {feat: [float(data[feat])] for feat in saved_features}
-        input_df = pd.DataFrame(input_dict)
-
-        # 2. Reorder columns to match model
-        input_df = input_df[saved_features]
-
-        # 3. Predict
+        input_df = pd.DataFrame(input_dict)[saved_features]
         prob = model.predict_proba(input_df)[0][1]
         probability_percent = round(prob * 100, 2)
-
-        # 4. Categorize
-        if probability_percent < 10:
-            risk = "Low Risk"
-        elif probability_percent < 20:
-            risk = "Moderate Risk"
-        else:
-            risk = "High Risk"
-
+        risk = "Low Risk" if probability_percent < 10 else "Moderate Risk" if probability_percent < 20 else "High Risk"
         return jsonify({
             "status": "success",
             "cvd_probability_percent": probability_percent,
             "risk_category": risk,
             "units": "10-year risk"
         })
-
     except KeyError as e:
         return jsonify({"status": "error", "message": f"Missing required feature: {str(e)}"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route("/api/explain", methods=["POST"])
+def explain_result():
+    """Call this from your React frontend after a prediction to have the
+    assistant speak the result aloud to the patient."""
+    data = request.get_json()
+    probability = data.get("probability")
+    risk = data.get("risk")
+
+    prompt = (
+        f"The patient's 10-year cardiovascular risk score just came back as {probability}%, "
+        f"which is classified as {risk}. Please explain what this means in simple, reassuring "
+        f"terms and give one actionable lifestyle tip."
+    )
+
+    reply = ask(prompt)
+    speak(reply)
+    return jsonify({"status": "spoken", "message": reply})
+
+
+# ---------------------------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
-    # Note: host='0.0.0.0' allows access from other devices on the same network
-    app.run(debug=True, port=5000)
+    # Start voice assistant in background thread
+    speech_thread = threading.Thread(target=speech_loop, daemon=True)
+    speech_thread.start()
+
+    # Port 5001 avoids macOS AirPlay conflict on port 5000
+    app.run(debug=False, port=5001, use_reloader=False)
