@@ -1,0 +1,14 @@
+{
+  "name": "axxesshack",
+  "version": "1.0.0",
+  "description": "AxxessHack - Frontend and Backend",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "python main.py",
+    "client": "npm --prefix frontend start",
+    "build": "npm --prefix frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
