@@ -3,9 +3,9 @@ import { Activity, TrendingUp, Heart, AlertCircle, Calendar, ArrowRight, Sparkle
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { getLatestAssessment, getAssessments } from "../utils/storage";
-import RiskGauge from "../components/RiskGauge";
-import MetricsChart from "../components/MetricsChart";
-import { motion } from "motion/react";
+import RiskGauge from "../RiskGauge";
+import MetricsChart from "../MetricsChart";
+import { motion } from "framer-motion";
 
 export default function Dashboard() {
   const navigate = useNavigate();

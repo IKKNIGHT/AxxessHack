@@ -4,15 +4,15 @@ import { Loader2, Save, Sparkles, Heart } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import XMLUploader from "../components/XMLUploader";
-import HealthDataForm from "../components/HealthDataForm";
-import RiskGauge from "../components/RiskGauge";
+import XMLUploader from "../XMLUploader";
+import HealthDataForm from "../HealthDataForm";
+import RiskGauge from "../RiskGauge";
 import { HealthData, AssessmentResult } from "../types/health";
 import { DEFAULT_HEALTH_DATA } from "../utils/constants";
 import { predictCVDRisk } from "../utils/api";
 import { saveAssessment } from "../utils/storage";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function HealthAssessment() {
   const navigate = useNavigate();

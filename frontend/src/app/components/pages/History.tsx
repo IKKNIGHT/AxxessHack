@@ -15,7 +15,7 @@ import {
 } from "../components/ui/alert-dialog";
 import { getAssessments, clearAssessments } from "../utils/storage";
 import { toast } from "sonner";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 
 export default function History() {
   const [assessments, setAssessments] = useState(getAssessments());

@@ -1,5 +1,30 @@
 import { HealthData } from "../types/health";
 
+export const DEFAULT_HEALTH_DATA: HealthData = {
+  SEX: 1,
+  TOTCHOL: 200,
+  AGE: 50,
+  SYSBP: 120,
+  DIABP: 80,
+  CURSMOKE: 0,
+  CIGPDAY: 0,
+  BMI: 25,
+  DIABETES: 0,
+  BPMEDS: 0,
+  HEARTRTE: 70,
+  GLUCOSE: 100,
+  educ: 1,
+  PREVCHD: 0,
+  PREVAP: 0,
+  PREVMI: 0,
+  PREVSTRK: 0,
+  PREVHYP: 0,
+  PERIOD: 0,
+  HDLC: 50,
+  LDLC: 130,
+  HYPERTEN: 0,
+};
+
 // Mock API call to CVD prediction backend
 export async function predictCVDRisk(healthData: HealthData): Promise<number> {
   // Simulate API call delay
