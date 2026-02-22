@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  Sample Patient Health Data XML File
+  This file demonstrates the proper structure for importing patient cardiovascular health data
+  
+  All fields should be numeric values (0/1 for boolean, age in years, measurements in standard units)
+  Required fields: age, sex, totchol, sysbp, diabp
+  Optional fields: any field can be omitted if data is not available
+-->
+<PatientData>
+  <!-- Demographics -->
+  <age>55</age>
+  <sex>1</sex>
+  <education>4</education>
+  
+  <!-- Vital Signs & Measurements -->
+  <sysbp>140</sysbp>
+  <diabp>90</diabp>
+  <heartrte>72</heartrte>
+  <bmi>28.5</bmi>
+  
+  <!-- Lipid Panel (Cholesterol) -->
+  <totchol>240</totchol>
+  <ldlc>150</ldlc>
+  <hdlc>40</hdlc>
+  
+  <!-- Metabolic -->
+  <glucose>100</glucose>
+  
+  <!-- Lifestyle -->
+  <cursmoke>0</cursmoke>
+  <cigpday>0</cigpday>
+  
+  <!-- Medical History -->
+  <diabetes>0</diabetes>
+  <bpmeds>1</bpmeds>
+  <prevchd>0</prevchd>
+  <prevap>0</prevap>
+  <prevmi>0</prevmi>
+  <prevstrk>0</prevstrk>
+  <prevhyp>1</prevhyp>
+  <hyperten>1</hyperten>
+  
+  <!-- Additional -->
+  <period>1</period>
+</PatientData>
