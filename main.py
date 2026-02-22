@@ -1,7 +1,17 @@
+from dotenv import load_dotenv
+load_dotenv()
+
+import os
 import pandas as pd
 import joblib
+import threading
 from flask import Flask, request, render_template_string, jsonify
 from flask_cors import CORS
+
+from speech.pipeline import record_until_silence
+from speech.stt import transcribe
+from speech.llm import ask, reset_conversation
+from speech.tts import speak
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -15,7 +25,48 @@ except FileNotFoundError:
     print("Error: Pickle files not found. Run train.py first!")
     exit()
 
-# --- WEB UI SECTION ---
+# ---------------------------------------------------------------------------
+# SPEECH THREAD
+# ---------------------------------------------------------------------------
+
+def speech_loop():
+    try:
+        speak("Hi! I'm your heart health assistant. You can ask me about your cardiovascular risk results or heart health in general.")
+    except Exception as e:
+        print(f"[TTS startup error]: {e}")
+
+    while True:
+        try:
+            audio = record_until_silence()
+            if len(audio) == 0:
+                continue
+
+            text = transcribe(audio)
+            if not text:
+                continue
+
+            print(f"Patient: {text}")
+
+            if any(w in text.lower() for w in ["goodbye", "bye", "exit", "quit"]):
+                speak("Take care, and stay heart healthy!")
+                break
+
+            if any(w in text.lower() for w in ["reset", "start over"]):
+                reset_conversation()
+                speak("Sure, let's start fresh. What would you like to know?")
+                continue
+
+            reply = ask(text)
+            print(f"Assistant: {reply}")
+            speak(reply)
+
+        except Exception as e:
+            print(f"[Speech loop error]: {e}")
+            continue
+
+# ---------------------------------------------------------------------------
+# WEB UI SECTION
+# ---------------------------------------------------------------------------
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -79,7 +130,9 @@ def home():
     return render_template_string(HTML_TEMPLATE, features=saved_features, probability=probability, risk=risk)
 
 
-# --- API SECTION ---
+# ---------------------------------------------------------------------------
+# API SECTION
+# ---------------------------------------------------------------------------
 
 @app.route("/api/predict", methods=["POST", "OPTIONS"])
 def api_predict():
@@ -138,7 +191,31 @@ def api_predict():
         return jsonify({"status": "error", "message": error_msg}), 500
 
 
+@app.route("/api/explain", methods=["POST"])
+def explain_result():
+    """Call this from your React frontend after a prediction to have the
+    assistant speak the result aloud to the patient."""
+    data = request.get_json()
+    probability = data.get("probability")
+    risk = data.get("risk")
+
+    prompt = (
+        f"The patient's 10-year cardiovascular risk score just came back as {probability}%, "
+        f"which is classified as {risk}. Please explain what this means in simple, reassuring "
+        f"terms and give one actionable lifestyle tip."
+    )
+
+    reply = ask(prompt)
+    speak(reply)
+    return jsonify({"status": "spoken", "message": reply})
+
+
 if __name__ == "__main__":
+    # Start voice assistant in background thread
+    speech_thread = threading.Thread(target=speech_loop, daemon=True)
+    speech_thread.start()
+
     # CVD Prediction API runs on port 5001 (separate from LLM service)
     # Note: host='0.0.0.0' allows access from other devices on the same network
-    app.run(debug=True, port=5001)
+    # Use_reloader=False prevents the speech thread from starting twice in debug mode
+    app.run(debug=True, port=5001, use_reloader=False)
