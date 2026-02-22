@@ -190,21 +190,27 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="mt-6">
-              <h4 className="font-bold text-gray-900 mb-3 text-lg">💝 Recommendations</h4>
-              <ul className="space-y-3">
-                {insights.recommendations.map((rec, index) => (
-                  <motion.li 
-                    key={index} 
-                    className="flex items-start gap-3 text-gray-700 p-3 rounded-lg bg-pink-50 border border-pink-100"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1 }}
-                  >
-                    <Heart className="w-4 h-4 text-pink-500 mt-0.5 flex-shrink-0" fill="currentColor" />
-                    <span>{rec}</span>
-                  </motion.li>
-                ))}
-              </ul>
+              <h4 className="font-bold text-gray-900 mb-3 text-lg">💝 Personalized Recommendations</h4>
+              {latestAssessment.llmFeedback ? (
+                <div className="text-gray-700 p-3 rounded-lg bg-pink-50 border border-pink-100 whitespace-pre-wrap leading-relaxed">
+                  {latestAssessment.llmFeedback}
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {insights.recommendations.map((rec, index) => (
+                    <motion.li 
+                      key={index} 
+                      className="flex items-start gap-3 text-gray-700 p-3 rounded-lg bg-pink-50 border border-pink-100"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                    >
+                      <Heart className="w-4 h-4 text-pink-500 mt-0.5 flex-shrink-0" fill="currentColor" />
+                      <span>{rec}</span>
+                    </motion.li>
+                  ))}
+                </ul>
+              )}
             </div>
           </Card>
         </motion.div>

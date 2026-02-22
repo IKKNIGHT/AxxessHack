@@ -46,12 +46,12 @@ app.post('/api/generate-feedback', async (req, res) => {
                     'X-Title': 'Axxess Heart Health'
                 },
                 body: JSON.stringify({
-                    model: 'arcee-ai/trinity-mini:free',
+                    model: 'openrouter/free',
                     messages: [{ 
                         role: 'user', 
                         content: `You are a healthcare expert. Given this patient profile with their CVD risk, provide 3-4 specific lifestyle recommendations bulleted (1 - 4) slightly detailed avoid md. Dont do an introduction just start with the bullet points. :\n\n${bio}` 
                     }],
-                    max_tokens: 750,
+                    max_tokens: 5000,
                     temperature: 0.7
                 }),
                 signal: controller.signal
