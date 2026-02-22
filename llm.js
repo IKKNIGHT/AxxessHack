@@ -46,12 +46,12 @@ app.post('/api/generate-feedback', async (req, res) => {
                     'X-Title': 'Axxess Heart Health'
                 },
                 body: JSON.stringify({
-                    model: 'google/gemma-3-27b-it:free',
+                    model: 'meta-llama/llama-2-7b-chat:free',
                     messages: [{ 
                         role: 'user', 
-                        content: `You are a healthcare expert. Given this patient profile with their CVD risk, provide 3-4 specific lifestyle recommendations. Keep it brief (under 200 chars total):\n\n${bio}` 
+                        content: `You are a healthcare expert. Given this patient profile with their CVD risk, provide 3-4 specific lifestyle recommendations. Keep it brief:\n\n${bio}` 
                     }],
-                    max_tokens: 500,
+                    max_tokens: 200,
                     temperature: 0.5
                 }),
                 signal: controller.signal
