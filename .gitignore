@@ -2,3 +2,7 @@ appmap.log
 .idea
 framingham_rf_model.pkl
 feature_names.pkl
+node_modules/
+.env
+.env.local
+.env.*.local
