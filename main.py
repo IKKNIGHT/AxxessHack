@@ -39,10 +39,12 @@ def speech_loop():
         try:
             audio = record_until_silence()
             if len(audio) == 0:
+                print("   ⚠️  No audio captured, retrying...")
                 continue
 
             text = transcribe(audio)
             if not text:
+                print("   💭 Please try again...")
                 continue
 
             print(f"Patient: {text}")
