@@ -1,26 +1,20 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Root from "./app/components/Root";
+import Dashboard from "./app/components/pages/Dashboard";
+import HealthAssessment from "./app/components/pages/HealthAssessment";
+import History from "./app/components/pages/History";
+//this one is da real one !!
 
-const App: React.FC = () => {
+export default function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Root />}>
+          <Route index element={<Dashboard />} />
+          <Route path="assessment" element={<HealthAssessment />} />
+          <Route path="history" element={<History />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;
