@@ -1,112 +1,97 @@
 import { HealthData } from "../types/health";
 
-// Mock API call to CVD prediction backend
-export async function predictCVDRisk(healthData: HealthData): Promise<number> {
-  // Simulate API call delay
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+// Service endpoints
+const LLM_SERVICE = "http://localhost:5000"; // LLM feedback service
+const CVD_API_SERVICE = "http://localhost:5001"; // CVD prediction service
 
-  // TODO: Replace with actual backend endpoint
-  // const response = await fetch('YOUR_BACKEND_URL/predict', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(healthData),
-  // });
-  // const data = await response.json();
-  // return data.riskPercentage;
-
-  // Mock calculation for demonstration
-  let risk = 0;
-
-  // Age factor
-  if (healthData.AGE > 60) risk += 15;
-  else if (healthData.AGE > 50) risk += 10;
-  else if (healthData.AGE > 40) risk += 5;
-
-  // Cholesterol factor
-  if (healthData.TOTCHOL > 240) risk += 10;
-  else if (healthData.TOTCHOL > 200) risk += 5;
-
-  // Blood pressure factor
-  if (healthData.SYSBP > 140) risk += 10;
-  else if (healthData.SYSBP > 130) risk += 5;
-
-  // Smoking factor
-  if (healthData.CURSMOKE === 1) risk += 15;
-
-  // BMI factor
-  if (healthData.BMI > 30) risk += 10;
-  else if (healthData.BMI > 25) risk += 5;
-
-  // Diabetes factor
-  if (healthData.DIABETES === 1) risk += 12;
-
-  // Previous conditions
-  if (healthData.PREVCHD === 1) risk += 20;
-  if (healthData.PREVMI === 1) risk += 20;
-  if (healthData.PREVSTRK === 1) risk += 15;
-  if (healthData.PREVHYP === 1) risk += 8;
-
-  // HDL/LDL ratio
-  if (healthData.HDLC < 40) risk += 5;
-  if (healthData.LDLC > 160) risk += 8;
-
-  // Cap at 99%
-  return Math.min(risk, 99);
-}
-
-// Parse Apple Health XML data
-export function parseAppleHealthXML(xmlContent: string): Partial<HealthData> | null {
+/**
+ * Generate personalized feedback from LLM based on health metrics
+ */
+export async function generateLLMFeedback(bio: string): Promise<string> {
   try {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
-
-    // Check for parsing errors
-    const parserError = xmlDoc.querySelector("parsererror");
-    if (parserError) {
-      throw new Error("Invalid XML format");
-    }
-
-    const records = xmlDoc.querySelectorAll("Record");
-    const healthData: Partial<HealthData> = {};
-
-    // Map Apple Health record types to our health data fields
-    const typeMapping: Record<string, string> = {
-      "HKQuantityTypeIdentifierBodyMass": "weight",
-      "HKQuantityTypeIdentifierHeight": "height",
-      "HKQuantityTypeIdentifierHeartRate": "HEARTRTE",
-      "HKQuantityTypeIdentifierBloodPressureSystolic": "SYSBP",
-      "HKQuantityTypeIdentifierBloodPressureDiastolic": "DIABP",
-      "HKQuantityTypeIdentifierBodyMassIndex": "BMI",
-      "HKQuantityTypeIdentifierBloodGlucose": "GLUCOSE",
-    };
-
-    let weight = 0;
-    let height = 0;
-
-    records.forEach((record) => {
-      const type = record.getAttribute("type");
-      const value = parseFloat(record.getAttribute("value") || "0");
-
-      if (type && typeMapping[type]) {
-        const field = typeMapping[type];
-        if (field === "weight") {
-          weight = value;
-        } else if (field === "height") {
-          height = value;
-        } else {
-          (healthData as any)[field] = Math.round(value);
-        }
-      }
+    console.log("🔵 Sending LLM feedback request");
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.error("⏱️ LLM service timeout");
+      controller.abort();
+    }, 40000); // 40 second timeout (35s on backend + buffer)
+    
+    const response = await fetch(`${LLM_SERVICE}/api/generate-feedback`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ bio }),
+      signal: controller.signal,
     });
 
-    // Calculate BMI if we have weight and height
-    if (weight > 0 && height > 0) {
-      healthData.BMI = Math.round((weight / (height * height)) * 10000) / 10;
+    clearTimeout(timeoutId);
+    console.log("🟢 LLM service response status:", response.status);
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("🔴 LLM service error response:", errorData);
+      throw new Error(`LLM service error: ${response.statusText}`);
     }
 
-    return healthData;
+    const data = await response.json();
+    console.log("🟢 LLM service response data source:", data.source);
+    console.log("🟢 LLM feedback length:", data.feedback?.length);
+    
+    return data.feedback || "No recommendations available";
   } catch (error) {
-    console.error("Error parsing Apple Health XML:", error);
-    return null;
+    console.error("🔴 LLM feedback error:", error);
+    // Return fallback recommendations instead of throwing
+    const fallback = `• Schedule a check-up with your doctor\n• Aim for 150 minutes of moderate exercise weekly\n• Reduce salt and processed foods\n• Manage stress through relaxation techniques`;
+    console.warn("⚠️ Returning fallback recommendations");
+    return fallback;
+  }
+}
+
+/**
+ * Predict CVD risk using the ML model
+ */
+export async function predictCVDRisk(healthData: HealthData): Promise<number> {
+  try {
+    console.log("🔵 Sending CVD prediction request");
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.error("⏱️ CVD API timeout");
+      controller.abort();
+    }, 15000); // 15 second timeout
+    
+    const response = await fetch(`${CVD_API_SERVICE}/api/predict`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(healthData),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    console.log("🟢 CVD API response status:", response.status);
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("🔴 CVD API error response:", errorData);
+      throw new Error(`CVD API error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("🟢 CVD API response data:", data);
+    
+    if (!data.cvd_probability_percent && data.cvd_probability_percent !== 0) {
+      console.warn("⚠️ No cvd_probability_percent in response, returning 15");
+      return 15;
+    }
+    
+    return data.cvd_probability_percent;
+  } catch (error) {
+    console.error("🔴 CVD prediction error:", error);
+    console.warn("⚠️ Returning default CVD risk of 15% due to error");
+    return 15; // Return default instead of throwing
   }
 }
