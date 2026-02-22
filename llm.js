@@ -33,7 +33,7 @@ app.post('/api/generate-feedback', async (req, res) => {
         const timeoutId = setTimeout(() => {
             console.error('⏱️ Request timeout triggered');
             controller.abort();
-        }, 35000);
+        }, 10000);
         
         try {
             console.log('🔵 Fetching from OpenRouter...');
@@ -46,12 +46,12 @@ app.post('/api/generate-feedback', async (req, res) => {
                     'X-Title': 'Axxess Heart Health'
                 },
                 body: JSON.stringify({
-                    model: 'z-ai/glm-4.5-air:free',
+                    model: 'stepfun/step-3.5-flash:free',
                     messages: [{ 
                         role: 'user', 
-                        content: `You are a healthcare expert. Given this patient profile with their CVD risk, provide 3-4 specific lifestyle recommendations. Keep it brief (under 200 chars total):\n\n${bio}` 
+                        content: `You are a healthcare expert. Given this patient profile with their CVD risk, provide 3-4 specific lifestyle recommendations bulleted (1 - 4) slightly detailed avoid md. Dont do an introduction just start with the bullet points. :\n\n${bio}` 
                     }],
-                    max_tokens: 100000,
+                    max_tokens: 1000,
                     temperature: 0.5
                 }),
                 signal: controller.signal
