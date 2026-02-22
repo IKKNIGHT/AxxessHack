@@ -33,6 +33,7 @@ export default function HeartChat({ onClose }: HeartChatProps) {
   
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,9 +98,16 @@ export default function HeartChat({ onClose }: HeartChatProps) {
       }
 
       setInterimTranscript(interimText);
-      
+      // If we have a finalized segment, send it immediately to the chat
       if (finalText) {
-        setTranscript((prev) => prev + finalText);
+        const finalTrimmed = finalText.trim();
+        if (finalTrimmed) {
+          // Clear any saved transcript state and interim text
+          setTranscript("");
+          setInterimTranscript("");
+          // Send finalized speech to backend
+          handleUserMessage(finalTrimmed);
+        }
       }
     };
 
@@ -121,11 +129,9 @@ export default function HeartChat({ onClose }: HeartChatProps) {
     };
 
     recognition.onend = () => {
+      // Stop state; final segments are handled in onresult to avoid duplicates
       setIsListening(false);
-      if (transcript.trim()) {
-        handleUserMessage(transcript.trim());
-        setTranscript("");
-      }
+      setTranscript("");
       setInterimTranscript("");
     };
 
@@ -138,13 +144,14 @@ export default function HeartChat({ onClose }: HeartChatProps) {
   };
 
   const toggleListening = () => {
+    if (!recognitionRef.current) return;
     if (isListening) {
-      recognitionRef.current?.stop();
+      recognitionRef.current.stop();
       setIsListening(false);
     } else {
       setTranscript("");
       setInterimTranscript("");
-      recognitionRef.current?.start();
+      recognitionRef.current.start();
     }
   };
 
@@ -214,23 +221,27 @@ export default function HeartChat({ onClose }: HeartChatProps) {
       setMessages((prev) => [...prev, errorMessage]);
     }
   };
-
   const speakText = (text: string) => {
     if (!synthesisRef.current) return;
 
-    // Cancel any ongoing speech
-    synthesisRef.current.cancel();
+    try {
+      // Cancel any ongoing speech
+      synthesisRef.current.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
 
-    synthesisRef.current.speak(utterance);
+      synthesisRef.current.speak(utterance);
+    } catch (e) {
+      console.error('SpeechSynthesis error:', e);
+      setIsSpeaking(false);
+    }
   };
 
   const stopSpeaking = () => {
@@ -360,7 +371,28 @@ export default function HeartChat({ onClose }: HeartChatProps) {
             {/* Microphone Button */}
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
+                onMouseDown={() => {
+                  initializeRecognition();
+                  // start recognition while pressed
+                  try { recognitionRef.current?.start(); } catch {}
+                }}
+                onMouseUp={() => {
+                  try { recognitionRef.current?.stop(); } catch {}
+                }}
+                onMouseLeave={() => {
+                  // If user drags out while holding, stop listening
+                  try { recognitionRef.current?.stop(); } catch {}
+                }}
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  initializeRecognition();
+                  try { recognitionRef.current?.start(); } catch {}
+                }}
+                onTouchEnd={() => {
+                  try { recognitionRef.current?.stop(); } catch {}
+                }}
                 onClick={() => {
+                  // Fallback for keyboard/click users - toggle
                   initializeRecognition();
                   toggleListening();
                 }}

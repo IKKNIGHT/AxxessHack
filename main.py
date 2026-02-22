@@ -11,7 +11,8 @@ from flask_cors import CORS
 from speech.pipeline import record_until_silence
 from speech.stt import transcribe
 from speech.llm import ask, reset_conversation
-from speech.tts import speak
+from speech.tts import speak, synthesize_wav_bytes
+from flask import Response
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -250,10 +251,30 @@ def speak_endpoint():
         return jsonify({"error": "No text provided"}), 400
     
     try:
+        # Keep original server-side playback behavior for local use
         speak(text)
         return jsonify({"status": "success", "message": "Speaking..."})
     except Exception as e:
         print(f"[Speak error]: {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/api/speak_audio", methods=["POST", "OPTIONS"])
+def speak_audio_endpoint():
+    """Return WAV audio bytes (Rachel voice) for frontend playback."""
+    if request.method == "OPTIONS":
+        return "", 200
+
+    data = request.get_json()
+    text = data.get("text", "").strip()
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+
+    try:
+        wav_bytes = synthesize_wav_bytes(text)
+        return Response(wav_bytes, mimetype="audio/wav")
+    except Exception as e:
+        print(f"[Speak audio error]: {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 
