@@ -27,6 +27,62 @@ const HealthDataForm: React.FC<HealthDataFormProps> = ({ data, onChange }) => {
   return (
     <div className="bg-gradient-to-br from-pink-50 via-white to-rose-50 p-10 rounded-3xl space-y-16 shadow-xl border border-pink-200">
 
+{/* Demographics */}
+<div>
+  <h2 className={sectionTitle}>Demographics</h2>
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+
+    {/* Age */}
+    <div>
+      <label className="block font-semibold mb-2 text-gray-700">
+        Age <span className="text-gray-400">(years)</span>
+      </label>
+      <input
+        type="number"
+        value={data.AGE || ""}
+        onChange={(e) => handleChange("AGE", Number(e.target.value))}
+        className={inputStyle}
+      />
+    </div>
+
+    {/* Sex */}
+    <div>
+      <label className="block font-semibold mb-2 text-gray-700">
+        Sex
+      </label>
+      <select
+        value={data.SEX || ""}
+        onChange={(e) =>
+          handleChange("SEX", Number(e.target.value))
+        }
+        className={inputStyle}
+      >
+        <option value="">Select</option>
+        <option value={1}>Male</option>
+        <option value={0}>Female</option>
+      </select>
+    </div>
+
+    {/* Education */}
+    <div>
+      <label className="block font-semibold mb-2 text-gray-700">
+        Education
+      </label>
+      <select
+        value={data.educ || ""}
+        onChange={(e) => handleChange("educ", Number(e.target.value))}
+        className={inputStyle}
+      >
+        <option value="">Select</option>
+        <option value={1}>HS or less</option>
+        <option value={2}>HS diploma</option>
+        <option value={3}>Some college</option>
+        <option value={4}>College degree (or higher)</option>
+      </select>
+    </div>
+
+  </div>
+</div>
       {/* Vital Signs */}
       <div>
         <h2 className={sectionTitle}>Vital Signs</h2>
