@@ -123,6 +123,18 @@ export default function HealthAssessment() {
               </div>
             </div>
 
+            {result.llmFeedback && (
+              <div className="bg-white rounded-2xl p-6 mb-8 border-2 border-pink-200">
+                <h3 className="font-bold text-gray-900 mb-3 text-xl flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-pink-500" fill="currentColor" />
+                  Personalized Recommendations
+                </h3>
+                <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {result.llmFeedback}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4">
               <Button 
                 onClick={handleStartNew} 
