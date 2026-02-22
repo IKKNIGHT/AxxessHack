@@ -193,6 +193,70 @@ def api_predict():
         return jsonify({"status": "error", "message": error_msg}), 500
 
 
+@app.route("/api/chat", methods=["POST", "OPTIONS"])
+def chat_endpoint():
+    """Chat endpoint for the React frontend chat box.
+    Expects: JSON with 'message' field
+    Returns: JSON with 'response' field"""
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    data = request.get_json()
+    user_message = data.get("message", "").strip()
+    
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+    
+    try:
+        reply = ask(user_message)
+        return jsonify({
+            "status": "success",
+            "response": reply
+        })
+    except Exception as e:
+        print(f"[Chat error]: {e}")
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/chat/reset", methods=["POST", "OPTIONS"])
+def reset_chat():
+    """Reset the conversation history"""
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    try:
+        reset_conversation()
+        return jsonify({"status": "success", "message": "Conversation reset"})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+@app.route("/api/speak", methods=["POST", "OPTIONS"])
+def speak_endpoint():
+    """Speak text using the backend TTS (optional).
+    By default, the React frontend uses browser text-to-speech.
+    Use this endpoint if you want the backend to handle audio playback.
+    """
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    data = request.get_json()
+    text = data.get("text", "").strip()
+    
+    if not text:
+        return jsonify({"error": "No text provided"}), 400
+    
+    try:
+        speak(text)
+        return jsonify({"status": "success", "message": "Speaking..."})
+    except Exception as e:
+        print(f"[Speak error]: {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
 @app.route("/api/explain", methods=["POST"])
 def explain_result():
     """Call this from your React frontend after a prediction to have the
@@ -213,11 +277,17 @@ def explain_result():
 
 
 if __name__ == "__main__":
-    # Start voice assistant in background thread
-    speech_thread = threading.Thread(target=speech_loop, daemon=True)
-    speech_thread.start()
+    # 🎙️ Voice assistant mode DISABLED for web UI
+    # The React frontend now handles all voice interactions through the chatbox button
+    # To re-enable terminal voice assistant, uncomment the lines below:
+    # 
+    # speech_thread = threading.Thread(target=speech_loop, daemon=True)
+    # speech_thread.start()
 
     # CVD Prediction API runs on port 5001 (separate from LLM service)
     # Note: host='0.0.0.0' allows access from other devices on the same network
-    # Use_reloader=False prevents the speech thread from starting twice in debug mode
+    # Use_reloader=False prevents duplicate speech threads when in debug mode
+    print("🚀 Backend running on http://127.0.0.1:5001")
+    print("🎙️ Voice control: Only React frontend (no terminal voice input)")
+    print("💬 Chat API: POST http://127.0.0.1:5001/api/chat")
     app.run(debug=True, port=5001, use_reloader=False)

@@ -5,26 +5,14 @@ import { Card } from "../components/ui/card";
 import { getLatestAssessment, getAssessments } from "../utils/storage";
 import RiskGauge from "../RiskGauge";
 import MetricsChart from "../MetricsChart";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const latestAssessment = getLatestAssessment();
   const assessments = getAssessments();
 
-  const getRiskInsights = (risk: number, llmFeedback?: string) => {
-    // If LLM feedback is available, use it
-    if (llmFeedback) {
-      return {
-        message: "💡 AI-Powered Recommendations",
-        recommendations: llmFeedback
-          .split('\n')
-          .filter(line => line.trim().length > 0)
-          .slice(0, 4), // Show first 4 recommendations
-      };
-    }
-
-    // Fallback to rule-based insights if no LLM feedback
+  const getRiskInsights = (risk: number) => {
     if (risk < 10) {
       return {
         message: "🎉 Amazing! Your heart is throwing a healthy party!",
@@ -101,11 +89,40 @@ export default function Dashboard() {
           Start Heart Check
           <ArrowRight className="w-5 h-5 ml-2" />
         </Button>
+
+        {/* Chat Feature Tip */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 max-w-md"
+        >
+          <Card className="p-6 border-2 border-pink-200 bg-gradient-to-br from-white to-pink-50 shadow-lg">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center flex-shrink-0">
+                <MessageCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  💬 Chat with Your Heart Helper!
+                </h3>
+                <p className="text-sm text-gray-700 mb-3">
+                  Click the floating heart button in the bottom-right corner to talk with our AI assistant! 
+                  Ask questions about heart health, get tips, and more - all with voice or text! 🎤
+                </p>
+                <div className="flex items-center gap-2 text-xs text-pink-600 font-medium">
+                  <Heart className="w-3 h-3" fill="currentColor" />
+                  Speech-to-speech enabled!
+                </div>
+              </div>
+            </div>
+          </Card>
+        </motion.div>
       </motion.div>
     );
   }
 
-  const insights = getRiskInsights(latestAssessment.riskPercentage, latestAssessment.llmFeedback);
+  const insights = getRiskInsights(latestAssessment.riskPercentage);
 
   return (
     <div className="space-y-8">
@@ -313,35 +330,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
       )}
-
-      {/* Chat Feature Tip */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="mt-12 max-w-md"
-      >
-        <Card className="p-6 border-2 border-pink-200 bg-gradient-to-br from-white to-pink-50 shadow-lg">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-red-400 rounded-full flex items-center justify-center flex-shrink-0">
-              <MessageCircle className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
-                💬 Chat with Your Heart Helper!
-              </h3>
-              <p className="text-sm text-gray-700 mb-3">
-                Click the floating heart button in the bottom-right corner to talk with our AI assistant! 
-                Ask questions about heart health, get tips, and more - all with voice or text! 🎤
-              </p>
-              <div className="flex items-center gap-2 text-xs text-pink-600 font-medium">
-                <Heart className="w-3 h-3" fill="currentColor" />
-                Speech-to-speech enabled!
-              </div>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
     </div>
   );
 }

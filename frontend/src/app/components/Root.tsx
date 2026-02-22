@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { Heart, FileHeart, History, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
+import FloatingChatButton from "./components/floatingChatButton";
 
 export default function Root() {
   const location = useLocation();
@@ -125,6 +126,9 @@ export default function Root() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         <Outlet />
       </main>
+
+      {/* Floating Chat Button */}
+      <FloatingChatButton />
     </div>
   );
 }
